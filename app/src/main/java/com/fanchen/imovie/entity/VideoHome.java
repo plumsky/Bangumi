@@ -17,7 +17,7 @@ import java.util.List;
 /**
  * Created by fanchen on 2017/9/18.
  */
-public class VideoHome implements IBangumiRoot,IBangumiMoreRoot,Parcelable {
+public class VideoHome implements IBangumiRoot, IBangumiMoreRoot, Parcelable {
 
     private List<VideoBanner> banner;
     private List<VideoTitle> result;
@@ -25,7 +25,7 @@ public class VideoHome implements IBangumiRoot,IBangumiMoreRoot,Parcelable {
     private String message;
     private List<Video> list;
 
-    public VideoHome(){
+    public VideoHome() {
     }
 
     protected VideoHome(Parcel in) {
@@ -60,12 +60,12 @@ public class VideoHome implements IBangumiRoot,IBangumiMoreRoot,Parcelable {
     @Override
     public List<IViewType> getAdapterResult() {
         List<IViewType> viewTypes = new ArrayList<>();
-        if(result != null)
-        for (IBangumiTitle homeResult : result) {
-            viewTypes.add(homeResult);
-            viewTypes.addAll(homeResult.getList());
-        }
-        if(list != null){
+        if (result != null)
+            for (IBangumiTitle homeResult : result) {
+                viewTypes.add(homeResult);
+                viewTypes.addAll(homeResult.getList());
+            }
+        if (list != null) {
             viewTypes.addAll(list);
         }
         return viewTypes;
@@ -112,11 +112,31 @@ public class VideoHome implements IBangumiRoot,IBangumiMoreRoot,Parcelable {
 
     @Override
     public List<? extends IVideo> getList() {
+        if ((list == null || list.size() == 0) && (result != null && result.size() > 0)) {
+            list = new ArrayList<>();
+            try {
+                for (VideoTitle title : result) {
+                    for (IVideo video : title.getList()){
+                        this.list.add((Video)video);
+                    }
+                }
+            } catch (Throwable e) {
+                e.printStackTrace();
+            }
+        }
         return list;
     }
 
-    public void setList(List<Video> list) {
-        this.list = list;
+    public void setList(List<IVideo> list) {
+        try {
+            if(this.list == null)
+                this.list = new ArrayList<>();
+            for (IVideo video : list){
+                this.list.add((Video)video);
+            }
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
     }
 
 }

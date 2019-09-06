@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcelable;
@@ -37,13 +38,16 @@ import com.fanchen.imovie.thread.task.AsyTaskListenerImpl;
 import com.fanchen.imovie.util.DateUtil;
 import com.fanchen.imovie.util.DialogUtil;
 import com.fanchen.imovie.util.LogUtil;
-import com.fanchen.imovie.util.VideoUrlUtil;
 import com.fanchen.imovie.view.video_new.Clarity;
 import com.fanchen.imovie.view.video_new.INiceVideoPlayer;
 import com.fanchen.imovie.view.video_new.NiceVideoManager;
 import com.fanchen.imovie.view.video_new.NiceVideoPlayer;
 import com.fanchen.imovie.view.video_new.NiceVideoPlayerController;
 import com.fanchen.imovie.view.video_new.TxVideoPlayerController;
+import com.fanchen.sniffing.DefaultFilter;
+import com.fanchen.sniffing.SniffingCallback;
+import com.fanchen.sniffing.SniffingVideo;
+import com.fanchen.sniffing.x5.SniffingUtil;
 import com.litesuits.orm.LiteOrm;
 import com.litesuits.orm.db.assit.QueryBuilder;
 import com.tencent.smtt.sdk.TbsVideo;
@@ -51,7 +55,6 @@ import com.vbyte.p2p.old.P2PHandler;
 import com.vbyte.p2p.old.P2PModule;
 import com.xigua.p2p.P2PManager;
 import com.xigua.p2p.P2PMessageWhat;
-import com.xunlei.XLAppliction;
 import com.xunlei.XLManager;
 import com.xunlei.downloadlib.XLService;
 
@@ -358,11 +361,17 @@ public class VideoPlayerActivity extends BaseActivity implements CustomAdapt {
 
     @Override
     protected void onDestroy() {
+        this.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         super.onDestroy();
+
+        //upload-images.jianshu.io/upload_images/1761677-b36d7483f4e225b7.gif
         unregisterReceiver(mP2pReceiver);
         NiceVideoManager.instance().release();
         P2PModule.getInstance().stopPlay();
-        VideoUrlUtil.getInstance().destroy();
+
+        SniffingUtil.get().releaseAll();
+
+//        VideoUrlUtil.getInstance().destroy();
         if (mPlayerController != null) mPlayerController.release();
         savePlayHistory(mVideoPlayer == null ? 0 : mVideoPlayer.getCurrentPosition());
     }
@@ -433,7 +442,7 @@ public class VideoPlayerActivity extends BaseActivity implements CustomAdapt {
      * @param playUrls
      * @param url
      */
-    private void openVideo(IPlayUrls playUrls, String url) {
+    private void openVideo(final IPlayUrls playUrls, String url) {
         int playType = playUrls.getPlayType();
         if (playType == IVideoEpisode.PLAY_TYPE_XIGUA || P2PManager.isXiguaUrl(url)) {//西瓜视频
             P2PManager.getInstance().play(url);
@@ -441,9 +450,23 @@ public class VideoPlayerActivity extends BaseActivity implements CustomAdapt {
             XLManager.get(this).addAndPlay(url);
         } else if (playType == IVideoEpisode.PLAY_TYPE_WEB) {//需要 webview 解析视频链接
             String referer = playUrls.getReferer();
-            ParseUrlListener parseWebUrl = new ParseUrlListener(playUrls);
-            VideoUrlUtil init = VideoUrlUtil.getInstance().init(this, url, referer);
-            init.setOnParseListener(parseWebUrl).startParse();
+            SniffingUtil.get().activity(this).referer(referer).url(url).callback(new SniffingCallback() {
+
+                @Override
+                public void onSniffingSuccess(View webView, String url, List<SniffingVideo> videos) {
+                    if (mVideoPlayer == null || videos == null || videos.isEmpty()) return;//解析成功，播放視頻
+                    openVideo( videos.get(0).getUrl(), playUrls.getReferer(), "", "");
+                }
+
+                @Override
+                public void onSniffingError(View webView, String url, int errorCode) {
+                    LogUtil.e("VideoPlayerActivity","onSniffingError -> " + errorCode);
+                }
+
+            }).filter(new DefaultFilter()).start();
+//            ParseUrlListener parseWebUrl = new ParseUrlListener(playUrls);
+//            VideoUrlUtil init = VideoUrlUtil.getInstance().init(this, url, referer);
+//            init.setOnParseListener(parseWebUrl).startParse();
         } else if (playType == IVideoEpisode.PLAY_TYPE_WEB_V) {//横向网页，跳转网页播放
             String title = "该视频需要跳转到原网页下载或播放";
             ParseUrlListener listener = new ParseUrlListener(url, playType);
@@ -588,11 +611,11 @@ public class VideoPlayerActivity extends BaseActivity implements CustomAdapt {
 
     }
 
-    /**
-     * webview解析視頻鏈接的回掉
-     * ParseUrlListener
-     */
-    private class ParseUrlListener implements VideoUrlUtil.OnParseWebUrlListener, OnButtonClickListener {
+//    /**
+//     * webview解析視頻鏈接的回掉
+//     * ParseUrlListener
+//     */
+    private class ParseUrlListener implements /*VideoUrlUtil.OnParseWebUrlListener,*/ OnButtonClickListener {
 
         private IPlayUrls playUrls;
 
@@ -610,18 +633,18 @@ public class VideoPlayerActivity extends BaseActivity implements CustomAdapt {
             this.playUrls = playUrls;
         }
 
-        @Override
-        public void onFindUrl(String videourl) {
-            if (mVideoPlayer == null || playUrls == null) return;//解析成功，播放視頻
-            openVideo(videourl, playUrls.getReferer(), "", "");
-        }
-
-        @Override
-        public void onError(String errorMsg) {
-            if (playUrls == null) return;//解析失敗，提示用戶打開網頁播放
-            String title = "该视频需要使用网页播放";
-            DialogUtil.showCancelableDialog(VideoPlayerActivity.this, title, this);
-        }
+//        @Override
+//        public void onFindUrl(String videourl) {
+//            if (mVideoPlayer == null || playUrls == null) return;//解析成功，播放視頻
+//            openVideo(videourl, playUrls.getReferer(), "", "");
+//        }
+//
+//        @Override
+//        public void onError(String errorMsg) {
+//            if (playUrls == null) return;//解析失敗，提示用戶打開網頁播放
+//            String title = "该视频需要使用网页播放";
+//            DialogUtil.showCancelableDialog(VideoPlayerActivity.this, title, this);
+//        }
 
         @Override
         public void onButtonClick(BaseAlertDialog<?> baseAlertDialog, int btn) {

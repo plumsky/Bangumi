@@ -3,7 +3,6 @@ package com.fanchen.imovie.fragment;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.os.Environment;
 import android.support.annotation.Nullable;
 import android.support.design.widget.TabLayout;
 import android.support.v7.widget.Toolbar;
@@ -13,7 +12,6 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.TextView;
 
@@ -65,7 +63,6 @@ public class HomePagerFragment extends BaseFragment implements Toolbar.OnMenuIte
     @InjectView(R.id.mv_adv)
     protected MarqueeView mMarqueeView;
 
-    private HomePagerAdapter mHomePagerAdapter;
     private SearchDialogFragment mSearchFragment = SearchDialogFragment.newInstance();
 
     @Override
@@ -84,7 +81,7 @@ public class HomePagerFragment extends BaseFragment implements Toolbar.OnMenuIte
                 TextView textView = new TextView(activity);
                 textView.setText(IMovieAppliction.ADVS[i]);
                 textView.setTextColor(Color.WHITE);
-                textView.setTextSize(12f);
+                textView.setTextSize(11f);
                 textView.setCompoundDrawablePadding(DisplayUtil.dip2px(activity, 4));
                 textView.setCompoundDrawables(drawable, null, null, null);
                 textView.setGravity(Gravity.CENTER_VERTICAL);
@@ -97,15 +94,30 @@ public class HomePagerFragment extends BaseFragment implements Toolbar.OnMenuIte
         mToolbar.setTitle("");
         setLoginInfo(activity == null ? null : activity.getLoginUser());
         activity.setSupportActionBar(mToolbar);
-        mHomePagerAdapter = new HomePagerAdapter(getChildFragmentManager());
         mViewPager.setOffscreenPageLimit(5);
-        mViewPager.setAdapter(mHomePagerAdapter);
+        mViewPager.setAdapter(new HomePagerAdapter(getChildFragmentManager()));
         mSlidingTab.setupWithViewPager(mViewPager);
         if (savedInstanceState != null) {
             mViewPager.setCurrentItem(savedInstanceState.getInt(CURRENT_ITEM));
         } else {
             //默认选中影视页
             mViewPager.setCurrentItem(2);
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (mMarqueeView != null && !mMarqueeView.isFlipping()) {
+            mMarqueeView.startFlipping();
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (mMarqueeView != null && mMarqueeView.isFlipping()) {
+            mMarqueeView.stopFlipping();
         }
     }
 
